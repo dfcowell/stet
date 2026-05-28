@@ -21,6 +21,12 @@ const REQUIRED: ReadonlyArray<readonly [string, keyof OidcConfig]> = [
   ["STET_SESSION_SECRET", "sessionSecret"],
 ];
 
+function parseTtlHours(raw: string | undefined): number {
+  if (!raw) return 168;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 168;
+}
+
 export function parseOidcConfig(env: Env): OidcConfig | null {
   const requested = Object.keys(env).some((k) => k.startsWith("STET_OIDC_") && !!env[k]);
   if (!requested) return null;
@@ -39,6 +45,6 @@ export function parseOidcConfig(env: Env): OidcConfig | null {
     sessionSecret: env.STET_SESSION_SECRET!,
     groupsClaim: env.STET_OIDC_GROUPS_CLAIM || "groups",
     scopes: env.STET_OIDC_SCOPES || "openid profile email groups",
-    sessionTtlHours: env.STET_SESSION_TTL_HOURS ? Number(env.STET_SESSION_TTL_HOURS) : 168,
+    sessionTtlHours: parseTtlHours(env.STET_SESSION_TTL_HOURS),
   };
 }

@@ -40,6 +40,11 @@ describe("parseOidcConfig", () => {
     expect(cfg.sessionTtlHours).toBe(24);
   });
 
+  it("falls back to the default TTL when the value is invalid", () => {
+    expect(parseOidcConfig({ ...full, STET_SESSION_TTL_HOURS: "abc" })!.sessionTtlHours).toBe(168);
+    expect(parseOidcConfig({ ...full, STET_SESSION_TTL_HOURS: "0" })!.sessionTtlHours).toBe(168);
+  });
+
   it("throws listing missing vars when OIDC is requested but incomplete", () => {
     expect(() => parseOidcConfig({ STET_OIDC_CLIENT_ID: "client" })).toThrow(/STET_OIDC_ISSUER/);
     expect(() => parseOidcConfig({ STET_OIDC_CLIENT_ID: "client" })).toThrow(/STET_SESSION_SECRET/);

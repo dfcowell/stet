@@ -8,12 +8,17 @@ export interface Auth {
   registerRoutes(app: Hono): void;
 }
 
+// Exact paths that bypass the gate. Exact matching (not a `/auth/` prefix) is
+// deliberate: Hono's path is decoded with decodeURI, which leaves `%2F` intact,
+// so a prefix allowlist would let `/auth/..%2f…` slip past onto other routes.
+const AUTH_PATHS: ReadonlySet<string> = new Set(["/auth/login", "/auth/callback", "/auth/logout"]);
+
 export function createAuth(config: OidcConfig, oidc: OidcClient): Auth {
   const secure = new URL(config.redirectUri).protocol === "https:";
   const cookieOpts = { secret: config.sessionSecret, secure };
 
   const middleware: MiddlewareHandler = async (c, next) => {
-    if (c.req.path.startsWith("/auth/")) return next();
+    if (AUTH_PATHS.has(c.req.path)) return next();
     const session = await readSession(c, config.sessionSecret);
     if (session) return next();
     if ((c.req.header("accept") ?? "").includes("text/html")) return c.redirect("/auth/login");

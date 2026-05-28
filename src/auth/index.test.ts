@@ -43,6 +43,10 @@ describe("gate middleware", () => {
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("/auth/login");
   });
+  it("does not let an encoded-slash path bypass the /auth allowlist", async () => {
+    const res = await buildApp().request("/auth/..%2fapi%2flibrary");
+    expect(res.status).toBe(401);
+  });
 });
 
 describe("/auth/login", () => {
