@@ -1,0 +1,24 @@
+stet has been deployed.
+
+Image:   {{ include "stet.image" . }}
+Browser: {{ if .Values.browser.enabled }}enabled (Chromium){{ else }}disabled (slim — gated/JS pages show "open original"){{ end }}
+OIDC:    {{ if .Values.oidc.enabled }}enabled (group {{ .Values.oidc.groupId }}){{ else }}disabled (open access){{ end }}
+
+{{- if .Values.ingress.enabled }}
+
+Reach it at: http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else }}
+
+No Ingress configured. Port-forward to try it:
+  kubectl port-forward svc/{{ include "stet.fullname" . }} 8787:{{ .Values.service.port }}
+  open http://localhost:8787
+{{- end }}
+
+{{- if .Values.oidc.enabled }}
+
+Register this redirect URI with your OIDC provider:
+  {{ .Values.oidc.redirectUri }}
+{{- end }}
+
+Editing profiles are managed in values (config.profiles). Editing them and running
+`helm upgrade` triggers a rolling restart so the new prompts take effect.

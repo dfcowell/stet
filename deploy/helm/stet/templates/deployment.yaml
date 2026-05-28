@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "stet.fullname" . }}
+  labels:
+    {{- include "stet.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "stet.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "stet.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: stet
+          image: {{ include "stet.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8787
+          env:
+            - name: PORT
+              value: "8787"
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: STET_WEB_DIR
+              value: /app/web
+            - name: STET_CONFIG_DIR
+              value: /config
+            - name: STET_DB_PATH
+              value: /data/stet.sqlite
+            - name: STET_STATE_DIR
+              value: /data/state
+            {{- if not .Values.browser.enabled }}
+            - name: STET_DISABLE_BROWSER
+              value: "true"
+            {{- end }}
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "stet.secretName" . }}
+                  key: ANTHROPIC_API_KEY
+            - name: STET_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "stet.secretName" . }}
+                  key: STET_SESSION_SECRET
+            {{- if .Values.oidc.enabled }}
+            - name: STET_OIDC_ISSUER
+              value: {{ .Values.oidc.issuer | quote }}
+            - name: STET_OIDC_CLIENT_ID
+              value: {{ .Values.oidc.clientId | quote }}
+            - name: STET_OIDC_GROUP_ID
+              value: {{ .Values.oidc.groupId | quote }}
+            - name: STET_OIDC_REDIRECT_URI
+              value: {{ .Values.oidc.redirectUri | quote }}
+            {{- if .Values.oidc.groupsClaim }}
+            - name: STET_OIDC_GROUPS_CLAIM
+              value: {{ .Values.oidc.groupsClaim | quote }}
+            {{- end }}
+            {{- if .Values.oidc.scopes }}
+            - name: STET_OIDC_SCOPES
+              value: {{ .Values.oidc.scopes | quote }}
+            {{- end }}
+            - name: STET_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "stet.secretName" . }}
+                  key: STET_OIDC_CLIENT_SECRET
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: profiles
+              mountPath: /config/profiles
+              readOnly: true
+            {{- if .Values.config.adapters }}
+            - name: adapters
+              mountPath: /config/adapters
+              readOnly: true
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "stet.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: profiles
+          configMap:
+            name: {{ include "stet.fullname" . }}-profiles
+        {{- if .Values.config.adapters }}
+        - name: adapters
+          configMap:
+            name: {{ include "stet.fullname" . }}-adapters
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

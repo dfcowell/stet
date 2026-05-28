@@ -110,6 +110,7 @@ suffix.
 | `STET_DB_PATH` | `./data/stet.sqlite` | SQLite database |
 | `STET_STATE_DIR` | `./data/state` | Persisted browser cookies/storage |
 | `STET_WEB_DIR` | `./web` | Static frontend directory |
+| `STET_DISABLE_BROWSER` | — | Set truthy to disable Chromium escalation (HTTP-only). Gated/JS pages then show a "needs a browser" error with an "open original" link. Used by the slim image. |
 | `LOG_LEVEL` | `info` | Log verbosity: `silent` \| `error` \| `warn` \| `info` \| `debug` |
 | `OTEL_TRACES_EXPORTER` | — | Set to `console` to print OpenTelemetry spans to the terminal |
 
@@ -183,6 +184,40 @@ Tests use **no live network, no real LLM, and no internet-facing browser**: the
 extractor/editor run against a `FakeLlmClient`, the fetcher and pipeline run against
 a local fixture HTTP server, and the Playwright gate test drives a local fixture
 page. Run `npm test` (currently 77 tests).
+
+## Deployment
+
+### Docker
+
+Two images:
+
+- **`Dockerfile`** — full image (Playwright base) with Chromium bundled, for gated / JS-rendered sources.
+- **`Dockerfile.slim`** — ~5× smaller, no Chromium; defaults `STET_DISABLE_BROWSER=true` so gated pages show a "needs a browser" notice instead of failing. Good for HTTP-only sources (e.g. AO3).
+
+```bash
+docker build -t stet:latest .                 # full
+docker build -f Dockerfile.slim -t stet:slim .  # slim
+
+docker run -p 8787:8787 \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -v stet-data:/data -v "$PWD/config:/config" \
+  stet:latest
+```
+
+Defaults inside the image: `STET_CONFIG_DIR=/config`, `STET_DB_PATH=/data/stet.sqlite`, `STET_STATE_DIR=/data/state`, `STET_WEB_DIR=/app/web`. Mount a volume at `/data` to persist the cache/library and a config dir at `/config`.
+
+### Helm
+
+Chart at [`deploy/helm/stet`](deploy/helm/stet). Single replica (SQLite is single-writer), a PVC for `/data`, ConfigMaps for profiles/adapters (from `values.config`), a Secret for the API key / session secret / OIDC client secret, a Service, and an optional Ingress.
+
+```bash
+helm install stet ./deploy/helm/stet \
+  --set anthropic.apiKey=sk-ant-... \
+  --set session.secret="$(openssl rand -hex 32)" \
+  --set image.repository=ghcr.io/you/stet --set image.tag=latest
+```
+
+Key values: `browser.enabled` (false → sets `STET_DISABLE_BROWSER`, pair with the slim image), `persistence.size`, `config.profiles`/`config.adapters`, `ingress.*`, and `oidc.*` (see Authentication). Editing `config.profiles` and running `helm upgrade` triggers a rolling restart. Provide secrets via values or point `existingSecret` at a pre-made Secret. Probes hit the unauthenticated `/healthz`.
 
 ## Status & limitations
 

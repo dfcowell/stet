@@ -1,0 +1,95 @@
+# stet Helm values
+
+image:
+  repository: ghcr.io/dfcowell/stet
+  # tag defaults to .Chart.appVersion when empty. Use a "-slim" tag with
+  # browser.enabled=false for the no-Chromium image.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# SQLite is single-writer and the data volume is ReadWriteOnce — keep at 1.
+replicaCount: 1
+
+logLevel: info
+
+# Browser automation (Chromium). When false, sets STET_DISABLE_BROWSER=true;
+# pair with the slim image. Gated / JS-rendered chapters then show a clear
+# "needs a browser" error instead of failing hard.
+browser:
+  enabled: true
+
+# Persistent volume for the SQLite DB and persisted browser state.
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: ""        # "" => cluster default
+  accessMode: ReadWriteOnce
+
+service:
+  type: ClusterIP
+  port: 80                # service port -> container 8787
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: stet.example.com
+  tls: false
+  tlsSecretName: ""
+
+# Editing profiles and site adapters become ConfigMaps mounted at the config dir.
+# Each key is a filename; the value is the file's contents.
+config:
+  profiles:
+    default.md: |
+      ---
+      name: Light Copyedit
+      ---
+      You are a careful copy editor for serialized web fiction. Fix spelling,
+      grammar, and punctuation; preserve the author's voice, plot, and names;
+      output only the edited prose.
+  adapters: {}
+  # adapters:
+  #   example.json: |
+  #     { "domain": "example.com", "fetchMode": "browser" }
+
+# Secrets. Provide values here (rendered into a Secret) OR set existingSecret to
+# the name of a Secret that already holds: ANTHROPIC_API_KEY, STET_SESSION_SECRET,
+# and (when oidc.enabled) STET_OIDC_CLIENT_SECRET.
+existingSecret: ""
+
+anthropic:
+  apiKey: ""              # required (unless existingSecret)
+
+session:
+  secret: ""              # required (unless existingSecret) — random HMAC secret
+
+# Optional OIDC access gate. All required fields must be set together.
+oidc:
+  enabled: false
+  issuer: ""
+  clientId: ""
+  clientSecret: ""        # rendered into the Secret
+  groupId: ""
+  redirectUri: ""         # e.g. https://stet.example.com/auth/callback
+  groupsClaim: ""         # default "groups"
+  scopes: ""              # default "openid profile email groups"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+# uid 1000 is pwuser (full image) / node (slim image); fsGroup lets it write the PV.
+podSecurityContext:
+  fsGroup: 1000
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
