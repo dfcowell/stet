@@ -1,11 +1,16 @@
 const $ = (id) => document.getElementById(id);
+async function apiFetch(url, opts) {
+  const r = await fetch(url, opts);
+  if (r.status === 401) { location.href = "/auth/login"; throw new Error("unauthenticated"); }
+  return r;
+}
 const api = {
-  profiles: () => fetch("/api/profiles").then((r) => r.json()),
-  setProfile: (id) => fetch("/api/profiles/active", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }) }),
-  library: () => fetch("/api/library").then((r) => r.json()),
-  story: (id) => fetch(`/api/story/${encodeURIComponent(id)}`).then((r) => r.json()),
-  addSerial: (url) => fetch("/api/library", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url }) }).then((r) => r.json()),
-  progress: (storyId, url) => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ storyId, url }) }),
+  profiles: () => apiFetch("/api/profiles").then((r) => r.json()),
+  setProfile: (id) => apiFetch("/api/profiles/active", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }) }),
+  library: () => apiFetch("/api/library").then((r) => r.json()),
+  story: (id) => apiFetch(`/api/story/${encodeURIComponent(id)}`).then((r) => r.json()),
+  addSerial: (url) => apiFetch("/api/library", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url }) }).then((r) => r.json()),
+  progress: (storyId, url) => apiFetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ storyId, url }) }),
 };
 
 const state = { activeProfile: null, profiles: [], story: null, url: null, meta: null, es: null };

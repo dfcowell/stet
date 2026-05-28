@@ -130,6 +130,29 @@ spans (via `@opentelemetry/api`). By default no exporter is registered (spans ar
 no-ops, so the terminal stays clean). Set `OTEL_TRACES_EXPORTER=console` to print
 spans, or register your own SDK/collector to ship them elsewhere.
 
+### Authentication (optional)
+
+stet runs with no auth by default (single-user, self-hosted). To gate access
+behind OpenID Connect, set the variables below. If **any** `STET_OIDC_*` variable
+is set, **all** required ones must be present or the app refuses to start
+(fail-closed). Access then requires an authenticated user who is a member of
+`STET_OIDC_GROUP_ID` (read from the ID token's groups claim).
+
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `STET_OIDC_ISSUER` | yes | — | Issuer / discovery URL |
+| `STET_OIDC_CLIENT_ID` | yes | — | OAuth client id |
+| `STET_OIDC_CLIENT_SECRET` | yes | — | OAuth client secret |
+| `STET_OIDC_GROUP_ID` | yes | — | Required group membership |
+| `STET_OIDC_REDIRECT_URI` | yes | — | e.g. `https://host/auth/callback` |
+| `STET_SESSION_SECRET` | yes | — | HMAC secret for the session cookie |
+| `STET_OIDC_GROUPS_CLAIM` | no | `groups` | ID-token claim holding groups |
+| `STET_OIDC_SCOPES` | no | `openid profile email groups` | Requested scopes |
+| `STET_SESSION_TTL_HOURS` | no | `168` | Session lifetime |
+
+Register `STET_OIDC_REDIRECT_URI` (the `/auth/callback` URL) with your provider.
+Endpoints: `/auth/login`, `/auth/callback`, `/auth/logout`.
+
 ## HTTP API
 
 | Method & path | Description |

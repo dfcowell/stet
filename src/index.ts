@@ -13,6 +13,9 @@ import { startServer } from "./server/serve.js";
 import { registerSerial } from "./library/register.js";
 import { DEFAULT_MODEL } from "./config-defaults.js";
 import { log, initObservability } from "./obs/index.js";
+import { parseOidcConfig } from "./auth/config.js";
+import { createOidcClient } from "./auth/oidc.js";
+import { createAuth, type Auth } from "./auth/index.js";
 
 const env = (k: string, d: string) => process.env[k] ?? d;
 const configDir = env("STET_CONFIG_DIR", "./config");
@@ -30,9 +33,20 @@ const extractor = createExtractor({ llm, model: DEFAULT_MODEL });
 const editor = createEditor({ llm });
 const pipeline = createPipeline({ fetcher, extractor, editor, cache, profiles, adapters });
 
+let auth: Auth | undefined;
+const oidcConfig = parseOidcConfig(process.env);
+if (oidcConfig) {
+  const oidcClient = await createOidcClient(oidcConfig);
+  auth = createAuth(oidcConfig, oidcClient);
+  log.info("oidc gate enabled", { issuer: oidcConfig.issuer, group: oidcConfig.groupId });
+} else {
+  log.info("oidc gate disabled (no STET_OIDC_* configured)");
+}
+
 const app = createApp({
   pipeline, profiles, library, webDir: env("STET_WEB_DIR", "./web"),
   addSerial: (url) => registerSerial(url, { fetcher, extractor, adapters }),
+  auth,
 });
 
 const port = Number(env("PORT", "8787"));

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createApp, type AppDeps } from "./app.js";
 import type { ProfileStore, LibraryStore, Story } from "../types.js";
 import type { Pipeline, ReadEvent } from "../pipeline/index.js";
+import type { Auth } from "../auth/index.js";
 
 const profile = { id: "p", name: "Light", systemPrompt: "s", model: "m", maxTokens: 10, temperature: 1, promptHash: "h" };
 function fakeProfiles(): ProfileStore {
@@ -81,5 +82,27 @@ describe("profiles + library + progress", () => {
     const res = await a.request("/api/progress", { method: "POST", body: JSON.stringify({ storyId: "st1", url: "https://s/2" }), headers: { "content-type": "application/json" } });
     expect(await res.json()).toEqual({ ok: true });
     expect(lib.getStory("st1")!.progress.currentChapterUrl).toBe("https://s/2");
+  });
+});
+
+describe("auth wiring", () => {
+  const fakeAuth: Auth = {
+    middleware: async (c, next) => {
+      if (c.req.path.startsWith("/auth/")) return next();
+      return c.json({ error: "unauthenticated" }, 401);
+    },
+    registerRoutes: (a) => { a.get("/auth/ping", (c) => c.text("pong")); },
+  };
+
+  it("gates API routes and serves /auth/* when auth is provided", async () => {
+    const a = app({ auth: fakeAuth });
+    expect((await a.request("/api/profiles")).status).toBe(401);
+    const ping = await a.request("/auth/ping");
+    expect(ping.status).toBe(200);
+    expect(await ping.text()).toBe("pong");
+  });
+
+  it("does not gate anything when auth is absent", async () => {
+    expect((await app().request("/api/profiles")).status).toBe(200);
   });
 });

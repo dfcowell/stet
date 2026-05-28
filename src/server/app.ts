@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ProfileStore, LibraryStore, Story } from "../types.js";
 import type { Pipeline } from "../pipeline/index.js";
+import type { Auth } from "../auth/index.js";
 import { log } from "../obs/index.js";
 
 export interface AppDeps {
@@ -10,6 +11,7 @@ export interface AppDeps {
   library: LibraryStore;
   addSerial: (url: string) => Promise<Story>;
   webDir: string;
+  auth?: Auth;
 }
 
 export function createApp(deps: AppDeps): Hono {
@@ -20,6 +22,11 @@ export function createApp(deps: AppDeps): Hono {
     await next();
     log.info("http", { method: c.req.method, path: c.req.path, status: c.res.status, ms: Date.now() - start });
   });
+
+  if (deps.auth) {
+    app.use("*", deps.auth.middleware);
+    deps.auth.registerRoutes(app);
+  }
 
   app.get("/api/chapter", (c) => {
     const url = c.req.query("url");
