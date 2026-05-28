@@ -1,0 +1,66 @@
+import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
+import type { ProfileStore, LibraryStore, Story } from "../types.js";
+import type { Pipeline } from "../pipeline/index.js";
+
+export interface AppDeps {
+  pipeline: Pipeline;
+  profiles: ProfileStore;
+  library: LibraryStore;
+  buildStory: (url: string) => Promise<Story>;
+  webDir: string;
+}
+
+export function createApp(deps: AppDeps): Hono {
+  const app = new Hono();
+
+  app.get("/api/chapter", (c) => {
+    const url = c.req.query("url");
+    const profileId = c.req.query("profileId");
+    if (!url) return c.json({ error: "url required" }, 400);
+    return streamSSE(c, async (stream) => {
+      let nextUrl: string | null = null;
+      for await (const ev of deps.pipeline.readChapter(url, profileId ? { profileId } : undefined)) {
+        if (ev.type === "meta") nextUrl = ev.nextUrl;
+        await stream.writeSSE({ event: ev.type, data: JSON.stringify(ev) });
+      }
+      if (nextUrl) void deps.pipeline.prefetch(nextUrl, profileId ? { profileId } : undefined);
+    });
+  });
+
+  app.get("/api/profiles", (c) =>
+    c.json({ active: deps.profiles.getActive().id, profiles: deps.profiles.list().map((p) => ({ id: p.id, name: p.name })) }));
+
+  app.post("/api/profiles/active", async (c) => {
+    const { id } = await c.req.json<{ id: string }>();
+    try { deps.profiles.setActive(id); } catch { return c.json({ error: "unknown profile" }, 404); }
+    return c.json({ active: deps.profiles.getActive().id });
+  });
+
+  app.get("/api/library", (c) =>
+    c.json({ stories: deps.library.listStories().map((s) => ({
+      id: s.id, title: s.title, sourceDomain: s.sourceDomain,
+      currentChapterUrl: s.progress.currentChapterUrl, chapterCount: s.chapters.length,
+    })) }));
+
+  app.get("/api/story/:id", (c) => {
+    const s = deps.library.getStory(c.req.param("id"));
+    return s ? c.json(s) : c.json({ error: "not found" }, 404);
+  });
+
+  app.post("/api/library", async (c) => {
+    const { url } = await c.req.json<{ url: string }>();
+    if (!url) return c.json({ error: "url required" }, 400);
+    const story = await deps.buildStory(url);
+    deps.library.upsertStory(story);
+    return c.json({ id: story.id, title: story.title, chapters: story.chapters });
+  });
+
+  app.post("/api/progress", async (c) => {
+    const { storyId, url } = await c.req.json<{ storyId: string; url: string }>();
+    deps.library.setProgress(storyId, url, Date.now());
+    return c.json({ ok: true });
+  });
+
+  return app;
+}
