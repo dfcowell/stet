@@ -23,6 +23,10 @@ export function createApp(deps: AppDeps): Hono {
     log.info("http", { method: c.req.method, path: c.req.path, status: c.res.status, ms: Date.now() - start });
   });
 
+  // Unauthenticated health check — registered before the gate so probes pass
+  // even when the OIDC gate is enabled.
+  app.get("/healthz", (c) => c.json({ status: "ok" }));
+
   if (deps.auth) {
     app.use("*", deps.auth.middleware);
     deps.auth.registerRoutes(app);

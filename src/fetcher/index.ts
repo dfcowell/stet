@@ -5,7 +5,14 @@ import { shouldEscalate, isSuccessStatus } from "./escalation.js";
 import { browserFetch } from "./browserFetch.js";
 import { log, withSpan } from "../obs/index.js";
 
-export function createFetcher(opts: { stateDir: string }): Fetcher {
+export class BrowserUnavailableError extends Error {
+  constructor(public readonly url: string) {
+    super(`browser rendering required for ${url} but the browser is disabled`);
+    this.name = "BrowserUnavailableError";
+  }
+}
+
+export function createFetcher(opts: { stateDir: string; browserDisabled?: boolean }): Fetcher {
   let browser: Browser | undefined;
 
   async function getBrowser(): Promise<Browser> {
@@ -23,6 +30,7 @@ export function createFetcher(opts: { stateDir: string }): Fetcher {
         async (span) => {
           // A site adapter can force the browser path; skip the HTTP probe.
           if (adapter?.fetchMode === "browser") {
+            if (opts.browserDisabled) throw new BrowserUnavailableError(url);
             span.setAttribute("fetch.escalated", true);
             log.info("escalating to browser", { url, reason: "adapter" });
             const b = await getBrowser();
@@ -43,6 +51,7 @@ export function createFetcher(opts: { stateDir: string }): Fetcher {
           if (!escalate) {
             return { html: http.html, finalUrl: http.finalUrl, status: http.status, usedBrowser: false };
           }
+          if (opts.browserDisabled) throw new BrowserUnavailableError(url);
 
           log.info("escalating to browser", { url, httpStatus: http.status, bytes: http.html.length });
           const b = await getBrowser();

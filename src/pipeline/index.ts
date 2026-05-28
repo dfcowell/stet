@@ -99,9 +99,14 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     try {
       raw = await loadRaw(url);
     } catch (err) {
-      const message = err instanceof FetchError
-        ? `The source returned an error (HTTP ${err.status}). The chapter was not loaded.`
-        : "Couldn't fetch this chapter.";
+      let message: string;
+      if (err instanceof FetchError) {
+        message = `The source returned an error (HTTP ${err.status}). The chapter was not loaded.`;
+      } else if (err instanceof Error && err.name === "BrowserUnavailableError") {
+        message = 'This chapter needs a full browser to load, which is disabled in this deployment. Use "Open original" to read it.';
+      } else {
+        message = "Couldn't fetch this chapter.";
+      }
       log.warn("read chapter failed", { url, error: err instanceof Error ? err.message : String(err) });
       yield { type: "error", message };
       return;

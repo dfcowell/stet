@@ -105,4 +105,10 @@ describe("auth wiring", () => {
   it("does not gate anything when auth is absent", async () => {
     expect((await app().request("/api/profiles")).status).toBe(200);
   });
+
+  it("serves /healthz unauthenticated even when the gate is enabled", async () => {
+    const res = await app({ auth: fakeAuth }).request("/healthz");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "ok" });
+  });
 });

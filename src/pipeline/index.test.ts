@@ -175,4 +175,19 @@ describe("pipeline non-2xx handling", () => {
     // nothing persisted — no raw extraction was cached
     expect(deps.cache.getRawByUrl(url)).toBeUndefined();
   });
+
+  it("maps a browser-unavailable failure to a clear error and caches nothing", async () => {
+    const deps = buildDeps(profile());
+    await deps.fetcher.close();
+    deps.fetcher = {
+      async fetch() { const e = new Error("disabled"); e.name = "BrowserUnavailableError"; throw e; },
+      async close() {},
+    };
+    const pipeline = createPipeline(deps);
+    const events = await collect(pipeline.readChapter("https://x.example/1"));
+    const last = events.at(-1) as Extract<ReadEvent, { type: "error" }>;
+    expect(last.type).toBe("error");
+    expect(last.message.toLowerCase()).toContain("browser");
+    expect(deps.cache.getRawByUrl("https://x.example/1")).toBeUndefined();
+  });
 });
