@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>stet</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="menu-toggle" class="icon-btn" aria-label="Chapters" hidden>☰</button>
+    <button id="home-btn" class="icon-btn" aria-label="Library">stet</button>
+    <select id="profile-select" class="profile-select" aria-label="Edit profile"></select>
+  </header>
+
+  <div id="progress-strip" class="progress-strip"><div id="progress-fill"></div></div>
+
+  <!-- Library view -->
+  <main id="library-view" class="view">
+    <h1 class="lib-title">Library</h1>
+    <form id="add-form" class="add-form">
+      <input id="add-url" type="url" placeholder="Paste a chapter or index URL…" required>
+      <button type="submit">Add</button>
+    </form>
+    <ul id="story-list" class="story-list"></ul>
+    <p id="lib-empty" class="muted">No serials yet — paste a URL above to begin.</p>
+  </main>
+
+  <!-- Reader view -->
+  <main id="reader-view" class="view" hidden>
+    <article id="chapter" class="chapter">
+      <h2 id="chapter-title" class="chapter-title"></h2>
+      <div id="chapter-body" class="chapter-body"></div>
+    </article>
+    <div id="reader-error" class="reader-error" hidden></div>
+    <nav class="reader-nav">
+      <button id="prev-btn" disabled>‹ Prev</button>
+      <button id="next-btn" disabled>Next ›</button>
+    </nav>
+  </main>
+
+  <!-- Slide-in chapter menu -->
+  <aside id="chapter-menu" class="chapter-menu" hidden>
+    <div class="chapter-menu-head"><span>Chapters</span><button id="menu-close" class="icon-btn">✕</button></div>
+    <ul id="chapter-menu-list"></ul>
+  </aside>
+  <div id="scrim" class="scrim" hidden></div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
