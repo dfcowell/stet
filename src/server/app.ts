@@ -7,7 +7,7 @@ export interface AppDeps {
   pipeline: Pipeline;
   profiles: ProfileStore;
   library: LibraryStore;
-  buildStory: (url: string) => Promise<Story>;
+  addSerial: (url: string) => Promise<Story>;
   webDir: string;
 }
 
@@ -51,7 +51,7 @@ export function createApp(deps: AppDeps): Hono {
   app.post("/api/library", async (c) => {
     const { url } = await c.req.json<{ url: string }>();
     if (!url) return c.json({ error: "url required" }, 400);
-    const story = await deps.buildStory(url);
+    const story = await deps.addSerial(url);
     deps.library.upsertStory(story);
     return c.json({ id: story.id, title: story.title, chapters: story.chapters });
   });

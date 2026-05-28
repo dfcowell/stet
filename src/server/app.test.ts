@@ -31,7 +31,7 @@ const fakePipeline: Pipeline = {
 function app(over: Partial<AppDeps> = {}) {
   return createApp({
     pipeline: fakePipeline, profiles: fakeProfiles(), library: fakeLibrary(),
-    buildStory: async (url) => ({ id: "st1", title: "Built", sourceDomain: "s", indexUrl: null, chapters: [{ title: "c1", url, index: 0 }], progress: { currentChapterUrl: url, lastReadAt: null } }),
+    addSerial: async (url) => ({ id: "st1", title: "Built", sourceDomain: "s", indexUrl: null, chapters: [{ title: "c1", url, index: 0 }], progress: { currentChapterUrl: url, lastReadAt: null } }),
     webDir: "web", ...over,
   });
 }

@@ -10,7 +10,7 @@ import { AnthropicClient } from "./llm/anthropic.js";
 import { createPipeline } from "./pipeline/index.js";
 import { createApp } from "./server/app.js";
 import { startServer } from "./server/serve.js";
-import { buildStory } from "./library/builder.js";
+import { registerSerial } from "./library/register.js";
 import { DEFAULT_MODEL } from "./config-defaults.js";
 
 const env = (k: string, d: string) => process.env[k] ?? d;
@@ -29,7 +29,7 @@ const pipeline = createPipeline({ fetcher, extractor, editor, cache, profiles, a
 
 const app = createApp({
   pipeline, profiles, library, webDir: env("STET_WEB_DIR", "./web"),
-  buildStory: (url) => buildStory(url, { fetcher, extractor, adapters }),
+  addSerial: (url) => registerSerial(url, { fetcher, extractor, adapters }),
 });
 
 const port = Number(env("PORT", "8787"));
