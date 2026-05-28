@@ -1,0 +1,16 @@
+# Brainstorm visual-companion scratch
+.superpowers/
+
+# Node
+node_modules/
+dist/
+*.log
+
+# Env / secrets
+.env
+.env.*
+
+# SQLite data
+*.sqlite
+*.sqlite-*
+*.db
