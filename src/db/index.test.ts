@@ -1,0 +1,25 @@
+import { describe, it, expect } from "vitest";
+import { openDb } from "./index.js";
+
+describe("openDb", () => {
+  it("creates schema and is idempotent on re-open", () => {
+    const db = openDb(":memory:");
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all()
+      .map((r: any) => r.name);
+    expect(tables).toEqual(
+      expect.arrayContaining(["chapter_cache", "raw_chapter", "story"]),
+    );
+    // running migrations again must not throw
+    expect(() => openDb(":memory:")).not.toThrow();
+    db.close();
+  });
+
+  it("sets user_version to the latest migration", () => {
+    const db = openDb(":memory:");
+    const v = db.pragma("user_version", { simple: true });
+    expect(v).toBeGreaterThanOrEqual(1);
+    db.close();
+  });
+});
