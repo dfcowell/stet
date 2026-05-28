@@ -25,6 +25,13 @@ export interface PipelineDeps {
   adapters: AdapterStore;
 }
 
+class FetchError extends Error {
+  constructor(public readonly status: number) {
+    super(`source responded with HTTP ${status}`);
+    this.name = "FetchError";
+  }
+}
+
 export function createPipeline(deps: PipelineDeps): Pipeline {
   function resolveProfile(profileId?: string): Profile {
     if (profileId) {
@@ -45,6 +52,12 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       async () => {
         const adapter = deps.adapters.forDomain(new URL(url).hostname);
         const fr = await deps.fetcher.fetch(url, adapter);
+        // Bail on any non-2xx response: never extract, edit, or cache an error
+        // page (e.g. a Cloudflare 525).
+        if (fr.status < 200 || fr.status >= 300) {
+          log.warn("fetch returned non-2xx", { url, status: fr.status });
+          throw new FetchError(fr.status);
+        }
         const extracted = await deps.extractor.extract({ html: fr.html, sourceUrl: fr.finalUrl, adapter });
         log.debug("extracted", {
           url, title: extracted.title, navConfidence: extracted.navConfidence,
@@ -82,7 +95,17 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     }
 
     log.info("read chapter", { url, profile: profile.id, cached: false });
-    const raw = await loadRaw(url);
+    let raw: RawChapter;
+    try {
+      raw = await loadRaw(url);
+    } catch (err) {
+      const message = err instanceof FetchError
+        ? `The source returned an error (HTTP ${err.status}). The chapter was not loaded.`
+        : "Couldn't fetch this chapter.";
+      log.warn("read chapter failed", { url, error: err instanceof Error ? err.message : String(err) });
+      yield { type: "error", message };
+      return;
+    }
     yield { type: "meta", title: raw.extractedTitle, nextUrl: raw.nextUrl, prevUrl: raw.prevUrl, cached: false };
 
     log.debug("editing", { url, profile: profile.id, chars: raw.rawExtractedText.length });

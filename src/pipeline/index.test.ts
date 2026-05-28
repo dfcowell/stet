@@ -156,3 +156,23 @@ describe("pipeline editor errors", () => {
     expect(meta.cached).toBe(false);
   });
 });
+
+describe("pipeline non-2xx handling", () => {
+  it("bails with an error and caches nothing when the source returns non-2xx", async () => {
+    const deps = buildDeps(profile());
+    server = await startFixtureServer({
+      "/c/1": { status: 525, body: "<html><body>cloudflare ssl handshake failed</body></html>" },
+    });
+    const pipeline = createPipeline(deps);
+    const url = `${server.url}/c/1`;
+
+    const events = await collect(pipeline.readChapter(url));
+    const last = events.at(-1) as Extract<ReadEvent, { type: "error" }>;
+    expect(last.type).toBe("error");
+    expect(last.message).toContain("525");
+    expect(events.find((e) => e.type === "meta")).toBeUndefined();
+
+    // nothing persisted — no raw extraction was cached
+    expect(deps.cache.getRawByUrl(url)).toBeUndefined();
+  });
+});
