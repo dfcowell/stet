@@ -12,9 +12,12 @@ import { createApp } from "./server/app.js";
 import { startServer } from "./server/serve.js";
 import { registerSerial } from "./library/register.js";
 import { DEFAULT_MODEL } from "./config-defaults.js";
+import { log, initObservability } from "./obs/index.js";
 
 const env = (k: string, d: string) => process.env[k] ?? d;
 const configDir = env("STET_CONFIG_DIR", "./config");
+
+await initObservability();
 
 const db = openDb(env("STET_DB_PATH", "./data/stet.sqlite"));
 const cache = createChapterCache(db);
@@ -34,4 +37,4 @@ const app = createApp({
 
 const port = Number(env("PORT", "8787"));
 startServer(app, { port, webDir: env("STET_WEB_DIR", "./web") });
-console.log(`stet listening on http://localhost:${port}`);
+log.info("stet listening", { url: `http://localhost:${port}` });

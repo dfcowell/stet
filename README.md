@@ -110,6 +110,25 @@ suffix.
 | `STET_DB_PATH` | `./data/stet.sqlite` | SQLite database |
 | `STET_STATE_DIR` | `./data/state` | Persisted browser cookies/storage |
 | `STET_WEB_DIR` | `./web` | Static frontend directory |
+| `LOG_LEVEL` | `info` | Log verbosity: `silent` \| `error` \| `warn` \| `info` \| `debug` |
+| `OTEL_TRACES_EXPORTER` | — | Set to `console` to print OpenTelemetry spans to the terminal |
+
+### Logging & tracing
+
+The backend emits readable, leveled logs to stderr for key operations — HTTP
+requests, chapter reads (cache hit/miss), fetches (including HTTP status and
+whether it escalated to the headless browser), extraction, editing, prefetch,
+and serial registration. Set `LOG_LEVEL=debug` to see the full per-operation
+trace; `info` (default) shows request lines and milestones.
+
+```bash
+LOG_LEVEL=debug ANTHROPIC_API_KEY=sk-ant-... npx tsx src/index.ts
+```
+
+Key operations are also instrumented with [OpenTelemetry](https://opentelemetry.io/)
+spans (via `@opentelemetry/api`). By default no exporter is registered (spans are
+no-ops, so the terminal stays clean). Set `OTEL_TRACES_EXPORTER=console` to print
+spans, or register your own SDK/collector to ship them elsewhere.
 
 ## HTTP API
 

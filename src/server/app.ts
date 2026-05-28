@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ProfileStore, LibraryStore, Story } from "../types.js";
 import type { Pipeline } from "../pipeline/index.js";
+import { log } from "../obs/index.js";
 
 export interface AppDeps {
   pipeline: Pipeline;
@@ -14,6 +15,12 @@ export interface AppDeps {
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
 
+  app.use("*", async (c, next) => {
+    const start = Date.now();
+    await next();
+    log.info("http", { method: c.req.method, path: c.req.path, status: c.res.status, ms: Date.now() - start });
+  });
+
   app.get("/api/chapter", (c) => {
     const url = c.req.query("url");
     const profileId = c.req.query("profileId");
@@ -24,7 +31,10 @@ export function createApp(deps: AppDeps): Hono {
         if (ev.type === "meta") nextUrl = ev.nextUrl;
         await stream.writeSSE({ event: ev.type, data: JSON.stringify(ev) });
       }
-      if (nextUrl) void deps.pipeline.prefetch(nextUrl, profileId ? { profileId } : undefined);
+      if (nextUrl) {
+        log.debug("prefetch next", { nextUrl });
+        void deps.pipeline.prefetch(nextUrl, profileId ? { profileId } : undefined);
+      }
     });
   });
 

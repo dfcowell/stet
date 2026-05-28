@@ -6,5 +6,6 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "test/**/*.test.ts"],
     hookTimeout: 30000,
     testTimeout: 30000,
+    env: { LOG_LEVEL: "silent" },
   },
 });
