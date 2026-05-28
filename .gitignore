@@ -14,3 +14,9 @@ dist/
 *.sqlite
 *.sqlite-*
 *.db
+
+# AgentOps session artifacts (auto-added)
+.agents/
+
+# Local data dir
+data/
