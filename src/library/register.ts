@@ -15,16 +15,17 @@ export async function registerSerial(
       const fr = await deps.fetcher.fetch(url, adapter);
       const ex = await deps.extractor.extract({ html: fr.html, sourceUrl: fr.finalUrl, adapter });
 
-      const isIndex = ex.chapterLinks.length > 0;
-      const start = isIndex ? (ex.chapterLinks[0]?.url ?? url) : url;
+      // If the URL is itself an index page, start at chapter 1; otherwise start
+      // at the chapter the user added (even when the page exposes a full chapter
+      // list via nav, e.g. AO3's chapter <select>).
+      const isIndexPage = ex.indexUrl !== null;
+      const start = isIndexPage ? (ex.chapterLinks[0]?.url ?? url) : url;
 
       const story: Story = {
         id: encodeURIComponent(new URL(url).hostname + new URL(url).pathname),
         title: ex.title || new URL(url).hostname,
         sourceDomain: new URL(url).hostname,
-        // A chapter list only exists when the page is itself an index; otherwise
-        // the reader navigates chapter-to-chapter via nextUrl/prevUrl.
-        indexUrl: isIndex ? url : ex.indexUrl,
+        indexUrl: ex.indexUrl,
         chapters: ex.chapterLinks,
         progress: { currentChapterUrl: start, lastReadAt: null },
       };

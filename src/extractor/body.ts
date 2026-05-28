@@ -2,12 +2,36 @@ import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import type { SiteAdapter } from "../types.js";
 
+// Containers that hold site chrome rather than the article itself.
+const CHROME_SELECTOR =
+  "header, nav, footer, aside, [role=banner], [role=navigation], #header, .header, .masthead";
+
 function paragraphsFrom(root: Element | Document): string {
   const blocks = Array.from(root.querySelectorAll("p, blockquote, h1, h2, h3, li"));
   const texts = blocks
     .map((b) => (b.textContent ?? "").trim())
     .filter((t) => t.length > 0);
   return texts.join("\n\n");
+}
+
+function metaContent(doc: Document, prop: string): string {
+  const el =
+    doc.querySelector(`meta[property="${prop}"]`) ?? doc.querySelector(`meta[name="${prop}"]`);
+  return (el?.getAttribute("content") ?? "").trim();
+}
+
+// First heading that belongs to the content, skipping site banners and
+// accessibility landmark/hidden headings (e.g. AO3's "Work Header" landmark and
+// its top-of-page site-name <h1>).
+function contentHeading(doc: Document): string {
+  for (const h of Array.from(doc.querySelectorAll("h1, h2, h3"))) {
+    if (h.closest(CHROME_SELECTOR)) continue;
+    if (/\blandmark\b/.test(h.getAttribute("class") ?? "")) continue;
+    if (h.getAttribute("aria-hidden") === "true" || h.hasAttribute("hidden")) continue;
+    const text = (h.textContent ?? "").trim().replace(/\s+/g, " ");
+    if (text) return text;
+  }
+  return "";
 }
 
 export function extractBody(
@@ -18,28 +42,29 @@ export function extractBody(
   const dom = new JSDOM(html, { url: sourceUrl });
   const doc = dom.window.document;
 
+  // Resolve the title from the original DOM: og:title is the strongest signal,
+  // then the first non-chrome content heading. Computed before Readability runs,
+  // since Readability.parse() mutates the document.
+  const preTitle = metaContent(doc, "og:title") || contentHeading(doc);
+  const docTitle = (doc.title ?? "").trim();
+
   if (adapter?.selectors?.body) {
     const node = doc.querySelector(adapter.selectors.body);
     if (node) {
-      const title = (doc.querySelector("h1")?.textContent ?? doc.title ?? "").trim();
-      return { title, rawText: paragraphsFrom(node), html: node.innerHTML };
+      return { title: preTitle || docTitle, rawText: paragraphsFrom(node), html: node.innerHTML };
     }
   }
-
-  // Capture the page's main heading before Readability runs; it is usually a
-  // better chapter title than Readability's <title>/metadata-derived title.
-  const h1 = (doc.querySelector("h1")?.textContent ?? "").trim();
 
   const reader = new Readability(doc);
   const article = reader.parse();
   if (article?.content) {
     const contentDoc = new JSDOM(article.content, { url: sourceUrl }).window.document;
     return {
-      title: h1 || (article.title ?? "").trim(),
+      title: preTitle || (article.title ?? "").trim() || docTitle,
       rawText: paragraphsFrom(contentDoc),
       html: article.content,
     };
   }
   // Last resort: whole-body text.
-  return { title: (doc.title ?? "").trim(), rawText: paragraphsFrom(doc), html: null };
+  return { title: preTitle || docTitle, rawText: paragraphsFrom(doc), html: null };
 }

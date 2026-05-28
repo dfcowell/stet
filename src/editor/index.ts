@@ -1,6 +1,12 @@
 import type { Editor, EditEvent, LlmClient, Profile } from "../types.js";
 import { chunkByBudget } from "./chunk.js";
 
+// Explicit, transform-agnostic request so the model reliably treats the user
+// turn as the text to edit (many editorial prompts only act "when asked for a
+// rewrite"). The system prompt still governs *how* to edit.
+const INSTRUCTION =
+  "Apply your editorial instructions to the text below and return the full edited prose only — no preamble, notes, or commentary.\n\n";
+
 export function createEditor(deps: { llm: LlmClient; contextCarry?: boolean }): Editor {
   return {
     async *edit(rawText: string, profile: Profile): AsyncIterable<EditEvent> {
@@ -15,7 +21,7 @@ export function createEditor(deps: { llm: LlmClient; contextCarry?: boolean }): 
           let chunkFull = "";
           for await (const delta of deps.llm.streamEdit({
             system: profile.systemPrompt,
-            userText: carry + chunks[i]!,
+            userText: carry + INSTRUCTION + chunks[i]!,
             model: profile.model,
             maxTokens: profile.maxTokens,
             temperature: profile.temperature,

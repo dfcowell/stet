@@ -32,6 +32,14 @@ describe("createEditor single pass", () => {
     expect(llm.lastStreamArgs?.system).toBe("edit this");
     expect(llm.lastStreamArgs?.model).toBe("m");
   });
+
+  it("frames the user turn as an explicit edit request that includes the text", async () => {
+    const llm = new FakeLlmClient({ editDeltas: ["x"] });
+    const editor = createEditor({ llm });
+    await collect(editor.edit("ORIGINAL PROSE", profile(5000)));
+    expect(llm.lastStreamArgs?.userText).toContain("ORIGINAL PROSE");
+    expect(llm.lastStreamArgs?.userText?.toLowerCase()).toContain("edited prose only");
+  });
 });
 
 describe("createEditor multi-chunk", () => {

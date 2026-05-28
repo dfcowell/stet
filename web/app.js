@@ -38,7 +38,8 @@ async function refreshLibrary() {
     const li = document.createElement("li");
     li.innerHTML = `<div class="s-title"></div><div class="s-meta"></div>`;
     li.querySelector(".s-title").textContent = s.title;
-    li.querySelector(".s-meta").textContent = `${s.sourceDomain} · ${s.chapterCount} chapters`;
+    li.querySelector(".s-meta").textContent =
+      s.chapterCount > 0 ? `${s.sourceDomain} · ${s.chapterCount} chapters` : s.sourceDomain;
     li.addEventListener("click", () => openStory(s.id));
     list.appendChild(li);
   }

@@ -41,6 +41,25 @@ describe("registerSerial", () => {
     expect(story.progress.currentChapterUrl).toBe(`${server.url}/c/1`);
   });
 
+  it("captures a chapter-nav <select> list while keeping the added chapter as current (AO3-style)", async () => {
+    const select = `<select id="selected_id">
+      <option value="880001">1. First</option>
+      <option value="880002" selected>2. Second</option>
+      <option value="880003">3. Third</option>
+    </select>`;
+    server = await startFixtureServer({
+      "/works/9/chapters/880002": { body: `<html><body>${body("Two")}${select}</body></html>` },
+    });
+    const story = await registerSerial(`${server.url}/works/9/chapters/880002`, deps());
+    expect(story.chapters.map((c) => c.url)).toEqual([
+      `${server.url}/works/9/chapters/880001`,
+      `${server.url}/works/9/chapters/880002`,
+      `${server.url}/works/9/chapters/880003`,
+    ]);
+    expect(story.indexUrl).toBeNull(); // a chapter page, not an index
+    expect(story.progress.currentChapterUrl).toBe(`${server.url}/works/9/chapters/880002`);
+  });
+
   it("makes exactly one fetch — no chapter walk", async () => {
     let calls = 0;
     const counting: Fetcher = {
