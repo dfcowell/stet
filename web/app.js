@@ -8,18 +8,74 @@ const api = {
   progress: (storyId, url) => fetch("/api/progress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ storyId, url }) }),
 };
 
-const state = { activeProfile: null, story: null, url: null, meta: null, es: null };
+const state = { activeProfile: null, profiles: [], story: null, url: null, meta: null, es: null };
+
+// ----- Routing (hash-based: #/ library, #/settings, #/read?s=storyId&u=chapterUrl) -----
+
+function navigate(hash) {
+  if (location.hash === hash) route(); // same route → re-render (e.g. re-open chapter)
+  else location.hash = hash;
+}
+
+function readHash(url, storyId) {
+  const p = new URLSearchParams();
+  if (storyId) p.set("s", storyId);
+  if (url) p.set("u", url);
+  return `#/read?${p.toString()}`;
+}
+
+function parseHash() {
+  const h = location.hash.replace(/^#/, "");
+  const [path, qs] = h.split("?");
+  return { path: path || "/", params: new URLSearchParams(qs || "") };
+}
+
+async function route() {
+  const { path, params } = parseHash();
+  if (path === "/settings") return renderSettings();
+  if (path === "/read") return renderReader(params.get("u"), params.get("s"));
+  return renderLibrary();
+}
+
+// ----- Views -----
 
 function showView(which) {
   $("library-view").hidden = which !== "library";
   $("reader-view").hidden = which !== "reader";
+  $("settings-view").hidden = which !== "settings";
   $("menu-toggle").hidden = !(which === "reader" && state.story && state.story.chapters.length);
-  if (which === "library") refreshLibrary();
+}
+
+function renderLibrary() {
+  if (state.es) { state.es.close(); state.es = null; }
+  state.story = null;
+  showView("library");
+  refreshLibrary();
+}
+
+function renderSettings() {
+  showView("settings");
+  if (state.activeProfile) $("profile-select").value = state.activeProfile;
+  updateModelLine();
+}
+
+async function renderReader(url, storyId) {
+  if (storyId) {
+    if (!state.story || state.story.id !== storyId) {
+      try { state.story = await api.story(storyId); } catch { state.story = null; }
+    }
+  } else {
+    state.story = null;
+  }
+  const target = url || state.story?.progress.currentChapterUrl || state.story?.chapters[0]?.url;
+  if (!target) { renderLibrary(); return; }
+  openChapter(target);
 }
 
 async function loadProfiles() {
   const { active, profiles } = await api.profiles();
   state.activeProfile = active;
+  state.profiles = profiles;
   const sel = $("profile-select");
   sel.innerHTML = "";
   for (const p of profiles) {
@@ -27,6 +83,11 @@ async function loadProfiles() {
     o.value = p.id; o.textContent = p.name; if (p.id === active) o.selected = true;
     sel.appendChild(o);
   }
+}
+
+function updateModelLine() {
+  const p = state.profiles.find((x) => x.id === state.activeProfile);
+  $("profile-model").textContent = p?.model ? `Model: ${p.model}` : "";
 }
 
 async function refreshLibrary() {
@@ -40,17 +101,13 @@ async function refreshLibrary() {
     li.querySelector(".s-title").textContent = s.title;
     li.querySelector(".s-meta").textContent =
       s.chapterCount > 0 ? `${s.sourceDomain} · ${s.chapterCount} chapters` : s.sourceDomain;
-    li.addEventListener("click", () => openStory(s.id));
+    li.addEventListener("click", () => navigate(readHash(null, s.id)));
     list.appendChild(li);
   }
 }
 
-async function openStory(id) {
-  const story = await api.story(id);
-  state.story = story;
-  const startUrl = story.progress.currentChapterUrl || (story.chapters[0] && story.chapters[0].url);
-  buildChapterMenu();
-  if (startUrl) openChapter(startUrl);
+function chapterTitleFor(url) {
+  return state.story?.chapters.find((c) => c.url === url)?.title ?? "";
 }
 
 function buildChapterMenu() {
@@ -61,7 +118,7 @@ function buildChapterMenu() {
     const li = document.createElement("li");
     li.textContent = ch.title || `Chapter ${ch.index + 1}`;
     if (ch.url === state.url) li.classList.add("current");
-    li.addEventListener("click", () => { closeMenu(); openChapter(ch.url); });
+    li.addEventListener("click", () => { closeMenu(); navigate(readHash(ch.url, state.story?.id)); });
     ul.appendChild(li);
   }
 }
@@ -78,7 +135,10 @@ function openChapter(url) {
   state.url = url;
   showView("reader");
   $("reader-error").hidden = true;
-  $("chapter-title").textContent = "…";
+  $("serial-title").textContent = state.story?.title || "…";
+  const chTitle = chapterTitleFor(url);
+  $("chapter-title").textContent = chTitle;
+  $("chapter-title").hidden = !chTitle;
   $("chapter-body").textContent = "";
   $("prev-btn").disabled = true; $("next-btn").disabled = true;
   window.scrollTo(0, 0);
@@ -93,7 +153,12 @@ function openChapter(url) {
 
   es.addEventListener("meta", (e) => {
     const m = JSON.parse(e.data); state.meta = m;
-    $("chapter-title").textContent = m.title || "Untitled";
+    // Within a story, the serial title + chapter title come from the chapter
+    // list; standalone, the extracted title is the best we have.
+    if (!state.story) {
+      $("serial-title").textContent = m.title || "Untitled";
+      $("chapter-title").hidden = true;
+    }
     $("prev-btn").disabled = !m.prevUrl;
     $("next-btn").disabled = !m.nextUrl;
     if (state.story) api.progress(state.story.id, url).catch(() => {});
@@ -131,16 +196,17 @@ function openMenu() { $("chapter-menu").hidden = false; requestAnimationFrame(()
 function closeMenu() { $("chapter-menu").classList.remove("open"); $("scrim").hidden = true; setTimeout(() => { $("chapter-menu").hidden = true; }, 250); }
 
 function wire() {
-  $("home-btn").addEventListener("click", () => { state.story = null; showView("library"); });
+  $("home-btn").addEventListener("click", () => navigate("#/"));
+  $("settings-btn").addEventListener("click", () => navigate("#/settings"));
   $("menu-toggle").addEventListener("click", openMenu);
   $("menu-close").addEventListener("click", closeMenu);
   $("scrim").addEventListener("click", closeMenu);
-  $("prev-btn").addEventListener("click", () => { if (state.meta && state.meta.prevUrl) openChapter(state.meta.prevUrl); });
-  $("next-btn").addEventListener("click", () => { if (state.meta && state.meta.nextUrl) openChapter(state.meta.nextUrl); });
+  $("prev-btn").addEventListener("click", () => { if (state.meta?.prevUrl) navigate(readHash(state.meta.prevUrl, state.story?.id)); });
+  $("next-btn").addEventListener("click", () => { if (state.meta?.nextUrl) navigate(readHash(state.meta.nextUrl, state.story?.id)); });
   $("profile-select").addEventListener("change", async (e) => {
     state.activeProfile = e.target.value;
     await api.setProfile(state.activeProfile).catch(() => {});
-    if (!$("reader-view").hidden && state.url) openChapter(state.url); // re-edit current
+    updateModelLine();
   });
   $("add-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -154,5 +220,6 @@ function wire() {
 (async function init() {
   wire();
   try { await loadProfiles(); } catch {}
-  showView("library");
+  window.addEventListener("hashchange", route);
+  route();
 })();

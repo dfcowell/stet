@@ -10,7 +10,7 @@
   <header class="topbar">
     <button id="menu-toggle" class="icon-btn" aria-label="Chapters" hidden>☰</button>
     <button id="home-btn" class="icon-btn" aria-label="Library">stet</button>
-    <select id="profile-select" class="profile-select" aria-label="Edit profile"></select>
+    <button id="settings-btn" class="icon-btn settings-btn" aria-label="Settings">⚙</button>
   </header>
 
   <div id="progress-strip" class="progress-strip"><div id="progress-fill"></div></div>
@@ -29,7 +29,8 @@
   <!-- Reader view -->
   <main id="reader-view" class="view" hidden>
     <article id="chapter" class="chapter">
-      <h2 id="chapter-title" class="chapter-title"></h2>
+      <h2 id="serial-title" class="serial-title"></h2>
+      <h3 id="chapter-title" class="chapter-title"></h3>
       <div id="chapter-body" class="chapter-body"></div>
     </article>
     <div id="reader-error" class="reader-error" hidden></div>
@@ -37,6 +38,16 @@
       <button id="prev-btn" disabled>‹ Prev</button>
       <button id="next-btn" disabled>Next ›</button>
     </nav>
+  </main>
+
+  <!-- Settings view -->
+  <main id="settings-view" class="view" hidden>
+    <h1 class="lib-title">Settings</h1>
+    <label class="setting">
+      <span class="setting-label">Editing profile</span>
+      <select id="profile-select" aria-label="Editing profile"></select>
+    </label>
+    <p id="profile-model" class="muted"></p>
   </main>
 
   <!-- Slide-in chapter menu -->

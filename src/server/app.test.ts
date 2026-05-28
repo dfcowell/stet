@@ -58,7 +58,7 @@ describe("GET /api/chapter (SSE)", () => {
 describe("profiles + library + progress", () => {
   it("lists profiles with the active id", async () => {
     const res = await app().request("/api/profiles");
-    expect(await res.json()).toEqual({ active: "p", profiles: [{ id: "p", name: "Light" }] });
+    expect(await res.json()).toEqual({ active: "p", profiles: [{ id: "p", name: "Light", model: "m" }] });
   });
   it("sets the active profile and 404s unknown", async () => {
     const ok = await app().request("/api/profiles/active", { method: "POST", body: JSON.stringify({ id: "p" }), headers: { "content-type": "application/json" } });

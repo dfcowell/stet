@@ -39,7 +39,7 @@ export function createApp(deps: AppDeps): Hono {
   });
 
   app.get("/api/profiles", (c) =>
-    c.json({ active: deps.profiles.getActive().id, profiles: deps.profiles.list().map((p) => ({ id: p.id, name: p.name })) }));
+    c.json({ active: deps.profiles.getActive().id, profiles: deps.profiles.list().map((p) => ({ id: p.id, name: p.name, model: p.model })) }));
 
   app.post("/api/profiles/active", async (c) => {
     const { id } = await c.req.json<{ id: string }>();
