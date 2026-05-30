@@ -90,6 +90,10 @@ resources:
 podSecurityContext:
   fsGroup: 1000
 
+# Container-level securityContext. Empty by default to preserve prior behavior;
+# set to satisfy `restricted` PodSecurity (allowPrivilegeEscalation, cap drop).
+containerSecurityContext: {}
+
 nodeSelector: {}
 tolerations: []
 affinity: {}
