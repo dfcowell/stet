@@ -40,6 +40,12 @@ async function collect(it: AsyncIterable<ReadEvent>): Promise<ReadEvent[]> {
   return out;
 }
 
+function deferred<T = void>() {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((r) => { resolve = r; });
+  return { promise, resolve };
+}
+
 let server: FixtureServer | undefined;
 let stateDir: string | undefined;
 let fetcherClose: (() => Promise<void>) | undefined;
@@ -154,6 +160,67 @@ describe("pipeline editor errors", () => {
     const events2 = await collect(pipeline.readChapter(url));
     const meta = events2.find((e) => e.type === "meta") as Extract<ReadEvent, { type: "meta" }>;
     expect(meta.cached).toBe(false);
+  });
+});
+
+describe("pipeline in-flight de-duplication", () => {
+  it("edits once when two reads race for the same chapter, fanning the stream to both", async () => {
+    const deps = buildDeps(profile());
+    let edits = 0;
+    const gate = deferred();
+    deps.editor = {
+      async *edit() {
+        edits++;
+        yield { type: "delta", text: "EDITED " };
+        await gate.promise;
+        yield { type: "delta", text: "TEXT" };
+        yield { type: "done", full: "EDITED TEXT" };
+      },
+    };
+    server = await startFixtureServer(pages(() => server!.url));
+    const pipeline = createPipeline(deps);
+    const url = `${server.url}/c/1`;
+
+    // Both reads register synchronously (cache-miss + getOrStart) before the
+    // single producer's fetch resolves, so the second attaches to the first.
+    const a = collect(pipeline.readChapter(url));
+    const b = collect(pipeline.readChapter(url));
+    gate.resolve();
+    const [ea, eb] = await Promise.all([a, b]);
+
+    expect(edits).toBe(1);
+    expect((ea.at(-1) as any).full).toBe("EDITED TEXT");
+    expect((eb.at(-1) as any).full).toBe("EDITED TEXT");
+  });
+
+  it("does not re-edit when a reader abandons mid-edit and a new read arrives (refresh)", async () => {
+    const deps = buildDeps(profile());
+    let edits = 0;
+    const gate = deferred();
+    deps.editor = {
+      async *edit() {
+        edits++;
+        yield { type: "delta", text: "EDITED " };
+        await gate.promise;
+        yield { type: "delta", text: "TEXT" };
+        yield { type: "done", full: "EDITED TEXT" };
+      },
+    };
+    server = await startFixtureServer(pages(() => server!.url));
+    const pipeline = createPipeline(deps);
+    const url = `${server.url}/c/1`;
+
+    // First read: consume until the first delta, then abandon (page refresh).
+    for await (const ev of pipeline.readChapter(url)) {
+      if (ev.type === "delta") break;
+    }
+    // Second read arrives while the edit is still gated (in-flight).
+    const second = collect(pipeline.readChapter(url));
+    gate.resolve();
+    const evs = await second;
+
+    expect(edits).toBe(1);
+    expect((evs.at(-1) as any).full).toBe("EDITED TEXT");
   });
 });
 

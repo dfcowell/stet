@@ -3,6 +3,7 @@ import type {
   Profile, RawChapter,
 } from "../types.js";
 import { computeCacheKey } from "../util/cacheKey.js";
+import { createInflightRegistry } from "./inflight.js";
 import { log, withSpan } from "../obs/index.js";
 
 export type ReadEvent =
@@ -33,6 +34,8 @@ class FetchError extends Error {
 }
 
 export function createPipeline(deps: PipelineDeps): Pipeline {
+  const registry = createInflightRegistry();
+
   function resolveProfile(profileId?: string): Profile {
     if (profileId) {
       const p = deps.profiles.get(profileId);
@@ -79,22 +82,14 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     );
   }
 
-  async function* readChapter(url: string, opts?: { profileId?: string }): AsyncIterable<ReadEvent> {
-    const profile = resolveProfile(opts?.profileId);
-    const key = computeCacheKey({
-      url, profileId: profile.id, promptHash: profile.promptHash, model: profile.model,
-    });
-
-    const hit = deps.cache.get(key);
-    if (hit) {
-      log.info("read chapter", { url, profile: profile.id, cached: true });
-      yield { type: "meta", title: hit.extractedTitle, nextUrl: hit.nextUrl, prevUrl: hit.prevUrl, cached: true };
-      yield { type: "delta", text: hit.editedContent };
-      yield { type: "done", full: hit.editedContent };
-      return;
-    }
-
-    log.info("read chapter", { url, profile: profile.id, cached: false });
+  // The single in-flight producer for a cache miss: fetch -> meta -> edit ->
+  // cache -> done. Always ends with a terminal `done` or `error` event, and
+  // writes the cache *before* emitting `done` so post-completion reads hit it.
+  async function* produceReadEvents(
+    url: string,
+    profile: Profile,
+    key: string,
+  ): AsyncIterable<ReadEvent> {
     let raw: RawChapter;
     try {
       raw = await loadRaw(url);
@@ -138,6 +133,28 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     yield { type: "done", full };
   }
 
+  async function* readChapter(url: string, opts?: { profileId?: string }): AsyncIterable<ReadEvent> {
+    const profile = resolveProfile(opts?.profileId);
+    const key = computeCacheKey({
+      url, profileId: profile.id, promptHash: profile.promptHash, model: profile.model,
+    });
+
+    const hit = deps.cache.get(key);
+    if (hit) {
+      log.info("read chapter", { url, profile: profile.id, cached: true });
+      yield { type: "meta", title: hit.extractedTitle, nextUrl: hit.nextUrl, prevUrl: hit.prevUrl, cached: true };
+      yield { type: "delta", text: hit.editedContent };
+      yield { type: "done", full: hit.editedContent };
+      return;
+    }
+
+    log.info("read chapter", { url, profile: profile.id, cached: false });
+    // Single-flight: start the edit if none is running for this key, otherwise
+    // attach to the in-flight one (the refresh / concurrent-read case).
+    const handle = registry.getOrStart(key, () => produceReadEvents(url, profile, key));
+    yield* handle.subscribe();
+  }
+
   async function prefetch(url: string, opts?: { profileId?: string }): Promise<void> {
     try {
       const profile = resolveProfile(opts?.profileId);
@@ -146,7 +163,11 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       });
       if (deps.cache.get(key)) return; // already warm
       log.debug("prefetch start", { url });
-      for await (const ev of readChapter(url, opts)) {
+      // Start (or attach to) the single in-flight edit and drain it so this
+      // promise resolves once the chapter is warmed. The producer is detached,
+      // so the edit completes and caches even if no one stays subscribed.
+      const handle = registry.getOrStart(key, () => produceReadEvents(url, profile, key));
+      for await (const ev of handle.subscribe()) {
         if (ev.type === "error") return; // silent; not cached
       }
       log.debug("prefetch done", { url });
