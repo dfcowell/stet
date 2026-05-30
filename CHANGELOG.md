@@ -4,6 +4,21 @@ All notable changes to **stet** are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — 2026-05-30
+
+### Fixed
+
+- A page refresh (or a second tab) during an in-progress edit no longer starts a
+  duplicate edit. Reads are now single-flight per cache key: the first request
+  starts the fetch → edit → cache work as a background producer, and any
+  concurrent or refreshed request attaches to that same in-flight edit —
+  replaying the output streamed so far, then tailing live deltas. Redundant LLM
+  calls for the same chapter are eliminated.
+- The in-flight edit is decoupled from the request connection, so it now runs to
+  completion and caches even if every reader disconnects mid-edit (previously a
+  refresh could abort the edit before it was cached). Prefetch shares the same
+  single-flight path, closing the prefetch-then-navigate race as well.
+
 ## [0.1.0] — 2026-05-29
 
 First release. **stet** is a self-hosted, single-user, mobile-first web app that
