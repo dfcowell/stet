@@ -147,6 +147,7 @@ function openChapter(url) {
   $("chapter-body").textContent = "";
   $("prev-btn").disabled = true; $("next-btn").disabled = true;
   window.scrollTo(0, 0);
+  resetNavVisibility();
   setProgressFill();
   buildChapterMenu();
 
@@ -200,6 +201,39 @@ function renderBody(text) {
 function openMenu() { $("chapter-menu").hidden = false; requestAnimationFrame(() => $("chapter-menu").classList.add("open")); $("scrim").hidden = false; }
 function closeMenu() { $("chapter-menu").classList.remove("open"); $("scrim").hidden = true; setTimeout(() => { $("chapter-menu").hidden = true; }, 250); }
 
+// ----- Reader nav auto-hide on scroll -----
+// Hide on downward scroll, show on upward scroll. Always show near the top
+// and at the bottom of the chapter so the next/prev buttons are reachable
+// when the reader finishes a chapter.
+const nav = { lastY: 0, ticking: false };
+function updateNavVisibility() {
+  nav.ticking = false;
+  if ($("reader-view").hidden) return;
+  const el = $("reader-nav");
+  const y = window.scrollY;
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  const atBottom = max <= 0 || y >= max - 24;
+  const atTop = y < 16;
+  const dy = y - nav.lastY;
+  if (atBottom || atTop) {
+    el.classList.remove("hidden");
+  } else if (dy > 6) {
+    el.classList.add("hidden");
+  } else if (dy < -6) {
+    el.classList.remove("hidden");
+  }
+  nav.lastY = y;
+}
+function onScroll() {
+  if (nav.ticking) return;
+  nav.ticking = true;
+  requestAnimationFrame(updateNavVisibility);
+}
+function resetNavVisibility() {
+  nav.lastY = window.scrollY;
+  $("reader-nav").classList.remove("hidden");
+}
+
 function wire() {
   $("home-btn").addEventListener("click", () => navigate("#/"));
   $("settings-btn").addEventListener("click", () => navigate("#/settings"));
@@ -226,5 +260,7 @@ function wire() {
   wire();
   try { await loadProfiles(); } catch {}
   window.addEventListener("hashchange", route);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll, { passive: true });
   route();
 })();

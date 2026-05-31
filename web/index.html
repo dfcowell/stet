@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16140f" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="stet">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <title>stet</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
@@ -34,7 +43,7 @@
       <div id="chapter-body" class="chapter-body"></div>
     </article>
     <div id="reader-error" class="reader-error" hidden></div>
-    <nav class="reader-nav">
+    <nav id="reader-nav" class="reader-nav">
       <button id="prev-btn" disabled>‹ Prev</button>
       <button id="next-btn" disabled>Next ›</button>
     </nav>
