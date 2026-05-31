@@ -112,7 +112,10 @@ suffix.
 | `STET_WEB_DIR` | `./web` | Static frontend directory |
 | `STET_DISABLE_BROWSER` | — | Set truthy to disable Chromium escalation (HTTP-only). Gated/JS pages then show a "needs a browser" error with an "open original" link. Used by the slim image. |
 | `LOG_LEVEL` | `info` | Log verbosity: `silent` \| `error` \| `warn` \| `info` \| `debug` |
-| `OTEL_TRACES_EXPORTER` | — | Set to `console` to print OpenTelemetry spans to the terminal |
+| `OTEL_TRACES_EXPORTER` | — | `console` prints spans to the terminal; `otlp` ships them via OTLP/HTTP to a collector |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTLP collector base URL (used when `OTEL_TRACES_EXPORTER=otlp`). `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` overrides for traces only. |
+| `OTEL_EXPORTER_OTLP_HEADERS` | — | Comma-separated `key=value` pairs added to each OTLP request (e.g. an auth header for Honeycomb / Grafana Cloud / Tempo) |
+| `OTEL_SERVICE_NAME` | `stet` | `service.name` resource attribute on emitted spans |
 
 ### Logging & tracing
 
@@ -127,9 +130,25 @@ LOG_LEVEL=debug ANTHROPIC_API_KEY=sk-ant-... npx tsx src/index.ts
 ```
 
 Key operations are also instrumented with [OpenTelemetry](https://opentelemetry.io/)
-spans (via `@opentelemetry/api`). By default no exporter is registered (spans are
-no-ops, so the terminal stays clean). Set `OTEL_TRACES_EXPORTER=console` to print
-spans, or register your own SDK/collector to ship them elsewhere.
+spans (via `@opentelemetry/api`). By default no exporter is registered (spans
+are no-ops, so the terminal stays clean). Two exporters ship with stet:
+
+- `OTEL_TRACES_EXPORTER=console` — print spans to stderr as they end. Useful
+  for local development.
+- `OTEL_TRACES_EXPORTER=otlp` — send spans via OTLP/HTTP to any compatible
+  collector (Jaeger, Tempo, Honeycomb, Grafana Cloud, an OpenTelemetry
+  Collector, etc.). Configure the destination with the standard OTel env
+  vars: `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4318`),
+  `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, and `OTEL_EXPORTER_OTLP_HEADERS`.
+
+```bash
+# Send spans to a local OTel Collector
+OTEL_TRACES_EXPORTER=otlp \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+ANTHROPIC_API_KEY=sk-ant-... npx tsx src/index.ts
+```
+
+Spans are tagged with `service.name=stet` (override via `OTEL_SERVICE_NAME`).
 
 ### Authentication (optional)
 
