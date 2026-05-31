@@ -79,6 +79,18 @@ oidc:
   groupsClaim: ""         # default "groups"
   scopes: ""              # default "openid profile email groups"
 
+# Optional OpenTelemetry trace export. When disabled no exporter is registered
+# and spans are no-ops (the app default). When enabled, the OTEL_* env vars
+# below are set on the container.
+telemetry:
+  tracing:
+    enabled: false
+    exporter: otlp        # OTEL_TRACES_EXPORTER: "otlp" (OTLP/HTTP) or "console"
+    endpoint: ""          # OTEL_EXPORTER_OTLP_ENDPOINT, e.g. http://collector:4318
+    tracesEndpoint: ""    # OTEL_EXPORTER_OTLP_TRACES_ENDPOINT (traces-only override)
+    headers: ""           # OTEL_EXPORTER_OTLP_HEADERS, e.g. "authorization=Bearer x"
+    serviceName: stet     # OTEL_SERVICE_NAME resource attribute
+
 resources:
   requests:
     cpu: 100m

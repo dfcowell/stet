@@ -2,7 +2,7 @@ apiVersion: v2
 name: stet
 description: Self-hosted, mobile-first LLM-editing reader for serialized web fiction
 type: application
-version: 0.2.3
+version: 0.3.0
 appVersion: "0.3.0"
 home: https://github.com/dfcowell/stet
 sources:

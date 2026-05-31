@@ -85,6 +85,26 @@ spec:
                   name: {{ include "stet.secretName" . }}
                   key: STET_OIDC_CLIENT_SECRET
             {{- end }}
+            {{- if .Values.telemetry.tracing.enabled }}
+            - name: OTEL_TRACES_EXPORTER
+              value: {{ .Values.telemetry.tracing.exporter | quote }}
+            {{- if .Values.telemetry.tracing.endpoint }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.telemetry.tracing.endpoint | quote }}
+            {{- end }}
+            {{- if .Values.telemetry.tracing.tracesEndpoint }}
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: {{ .Values.telemetry.tracing.tracesEndpoint | quote }}
+            {{- end }}
+            {{- if .Values.telemetry.tracing.headers }}
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: {{ .Values.telemetry.tracing.headers | quote }}
+            {{- end }}
+            {{- if .Values.telemetry.tracing.serviceName }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.telemetry.tracing.serviceName | quote }}
+            {{- end }}
+            {{- end }}
           volumeMounts:
             - name: data
               mountPath: /data
