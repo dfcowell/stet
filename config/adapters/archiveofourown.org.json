@@ -1,0 +1,7 @@
+{
+  "domain": "archiveofourown.org",
+  "selectors": {
+    "serialTitle": "h2.title.heading",
+    "chapterTitle": "h3.title"
+  }
+}
