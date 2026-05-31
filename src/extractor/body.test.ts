@@ -41,4 +41,15 @@ describe("extractBody", () => {
     const r = extractBody(html, "https://s.example/c/5", undefined);
     expect(r.title).toBe("OG Work Title");
   });
+
+  it("honors an adapter chapterTitle selector over heuristics", () => {
+    const html = `<!doctype html><html><head><meta property="og:title" content="Bad OG Title"></head>
+      <body><h2 class="ch">Real Chapter Title</h2>
+      <article>${"<p>Prose paragraph with enough words to keep readability happy here.</p>".repeat(30)}</article></body></html>`;
+    const r = extractBody(html, "https://s.example/c/5", {
+      domain: "s.example",
+      selectors: { chapterTitle: "h2.ch" },
+    });
+    expect(r.title).toBe("Real Chapter Title");
+  });
 });

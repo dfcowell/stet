@@ -1,10 +1,30 @@
-import type { Extractor, ExtractedChapter, LlmClient, SiteAdapter } from "../types.js";
+import type { Extractor, ExtractedChapter, LlmClient, SiteAdapter, ChapterLink } from "../types.js";
 import { JSDOM } from "jsdom";
 import { extractBody } from "./body.js";
 import { heuristicNav } from "./nav.js";
 import { detectChapterIndex } from "./chapterIndex.js";
 import { chaptersFromSelect } from "./chapterSelect.js";
 import { collectLinks, sameRegistrableDomain, absolute } from "./links.js";
+import { extractSerialTitle } from "./serialTitle.js";
+
+function chaptersFromSelector(doc: Document, base: string, selector: string): ChapterLink[] {
+  const container = doc.querySelector(selector);
+  if (!container) return [];
+  const out: ChapterLink[] = [];
+  const seen = new Set<string>();
+  let i = 0;
+  for (const a of Array.from(container.querySelectorAll("a[href]"))) {
+    const raw = a.getAttribute("href") ?? "";
+    if (!raw || raw.startsWith("#")) continue;
+    const url = absolute(raw, base);
+    if (!url) continue;
+    const noHash = url.split("#")[0]!;
+    if (seen.has(noHash)) continue;
+    seen.add(noHash);
+    out.push({ title: (a.textContent ?? "").trim().slice(0, 200), url: noHash, index: i++ });
+  }
+  return out;
+}
 
 export function createExtractor(deps: { llm?: LlmClient; model: string }): Extractor {
   return {
@@ -17,11 +37,21 @@ export function createExtractor(deps: { llm?: LlmClient; model: string }): Extra
       const doc = new JSDOM(html, { url: sourceUrl }).window.document;
 
       const body = extractBody(html, sourceUrl, adapter);
-      // A page can be a true index (a TOC of anchor links) or a chapter that
-      // merely exposes a chapter-nav <select>. Only the former sets indexUrl.
-      const indexLinks = detectChapterIndex(doc, sourceUrl);
-      const chapterLinks = indexLinks ?? chaptersFromSelect(doc, sourceUrl) ?? [];
-      const indexUrl = indexLinks ? sourceUrl : null;
+
+      // Chapter list resolution: adapter selector wins; otherwise a true TOC
+      // (detectChapterIndex) sets indexUrl, and a chapter-nav <select> populates
+      // chapters without setting indexUrl.
+      const adapterListSelector = adapter?.selectors?.chapterList;
+      let chapterLinks: ChapterLink[] = [];
+      let indexUrl: string | null = null;
+      if (adapterListSelector) {
+        chapterLinks = chaptersFromSelector(doc, sourceUrl, adapterListSelector);
+      }
+      if (chapterLinks.length === 0) {
+        const indexLinks = detectChapterIndex(doc, sourceUrl);
+        chapterLinks = indexLinks ?? chaptersFromSelect(doc, sourceUrl) ?? [];
+        if (indexLinks) indexUrl = sourceUrl;
+      }
 
       // Adapter selector overrides for nav take precedence.
       const adapterNext = adapter?.selectors?.next
@@ -55,9 +85,12 @@ export function createExtractor(deps: { llm?: LlmClient; model: string }): Extra
         }
       }
 
+      const serialTitle = extractSerialTitle(doc, body.title, adapter?.selectors, sourceUrl);
+
       return {
         sourceUrl,
         title: body.title,
+        serialTitle,
         rawText: body.rawText,
         html: body.html,
         nextUrl,

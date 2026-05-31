@@ -1,5 +1,5 @@
 import type { Db } from "../db/index.js";
-import type { ChapterCache, ChapterCacheEntry, RawChapter } from "../types.js";
+import type { ChapterCache, ChapterCacheEntry, ChapterLink, RawChapter } from "../types.js";
 
 interface CacheRow {
   key: string; url: string; profile_id: string; prompt_hash: string; model: string;
@@ -8,7 +8,8 @@ interface CacheRow {
 }
 interface RawRow {
   url: string; extracted_title: string; raw_extracted_text: string;
-  next_url: string | null; prev_url: string | null; index_url: string | null; fetched_at: number;
+  next_url: string | null; prev_url: string | null; index_url: string | null;
+  chapter_links_json: string; serial_title: string | null; fetched_at: number;
 }
 
 export function createChapterCache(db: Db): ChapterCache {
@@ -21,8 +22,8 @@ export function createChapterCache(db: Db): ChapterCache {
   const getRawStmt = db.prepare<[string]>("SELECT * FROM raw_chapter WHERE url = ?");
   const putRawStmt = db.prepare(`
     INSERT OR REPLACE INTO raw_chapter
-      (url, extracted_title, raw_extracted_text, next_url, prev_url, index_url, fetched_at)
-    VALUES (@url, @extractedTitle, @rawExtractedText, @nextUrl, @prevUrl, @indexUrl, @fetchedAt)
+      (url, extracted_title, raw_extracted_text, next_url, prev_url, index_url, chapter_links_json, serial_title, fetched_at)
+    VALUES (@url, @extractedTitle, @rawExtractedText, @nextUrl, @prevUrl, @indexUrl, @chapterLinksJson, @serialTitle, @fetchedAt)
   `);
 
   return {
@@ -41,11 +42,30 @@ export function createChapterCache(db: Db): ChapterCache {
       const r = getRawStmt.get(url) as RawRow | undefined;
       if (!r) return undefined;
       const raw: RawChapter = {
-        url: r.url, extractedTitle: r.extracted_title, rawExtractedText: r.raw_extracted_text,
-        nextUrl: r.next_url, prevUrl: r.prev_url, indexUrl: r.index_url, fetchedAt: r.fetched_at,
+        url: r.url,
+        extractedTitle: r.extracted_title,
+        serialTitle: r.serial_title,
+        rawExtractedText: r.raw_extracted_text,
+        nextUrl: r.next_url,
+        prevUrl: r.prev_url,
+        indexUrl: r.index_url,
+        chapterLinks: JSON.parse(r.chapter_links_json) as ChapterLink[],
+        fetchedAt: r.fetched_at,
       };
       return raw;
     },
-    putRaw(raw) { putRawStmt.run(raw as unknown as Record<string, unknown>); },
+    putRaw(raw) {
+      putRawStmt.run({
+        url: raw.url,
+        extractedTitle: raw.extractedTitle,
+        rawExtractedText: raw.rawExtractedText,
+        nextUrl: raw.nextUrl,
+        prevUrl: raw.prevUrl,
+        indexUrl: raw.indexUrl,
+        chapterLinksJson: JSON.stringify(raw.chapterLinks),
+        serialTitle: raw.serialTitle,
+        fetchedAt: raw.fetchedAt,
+      });
+    },
   };
 }

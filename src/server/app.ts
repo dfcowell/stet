@@ -1,14 +1,16 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import type { ProfileStore, LibraryStore, Story } from "../types.js";
+import type { ChapterCache, ProfileStore, LibraryStore, Story } from "../types.js";
 import type { Pipeline } from "../pipeline/index.js";
 import type { Auth } from "../auth/index.js";
+import { mergeStoryMetadata } from "../library/mergeMetadata.js";
 import { log } from "../obs/index.js";
 
 export interface AppDeps {
   pipeline: Pipeline;
   profiles: ProfileStore;
   library: LibraryStore;
+  cache: ChapterCache;
   addSerial: (url: string) => Promise<Story>;
   webDir: string;
   auth?: Auth;
@@ -35,12 +37,28 @@ export function createApp(deps: AppDeps): Hono {
   app.get("/api/chapter", (c) => {
     const url = c.req.query("url");
     const profileId = c.req.query("profileId");
+    const storyId = c.req.query("storyId");
     if (!url) return c.json({ error: "url required" }, 400);
     return streamSSE(c, async (stream) => {
       let nextUrl: string | null = null;
       for await (const ev of deps.pipeline.readChapter(url, profileId ? { profileId } : undefined)) {
         if (ev.type === "meta") nextUrl = ev.nextUrl;
         await stream.writeSSE({ event: ev.type, data: JSON.stringify(ev) });
+      }
+      if (storyId) {
+        const stored = deps.library.getStory(storyId);
+        const raw = deps.cache.getRawByUrl(url);
+        if (stored && raw) {
+          const merged = mergeStoryMetadata(stored, {
+            title: raw.serialTitle,
+            indexUrl: raw.indexUrl,
+            chapters: raw.chapterLinks,
+          });
+          if (merged !== stored) {
+            deps.library.upsertStory(merged);
+            log.debug("story metadata refreshed", { storyId, title: merged.title, chapters: merged.chapters.length });
+          }
+        }
       }
       if (nextUrl) {
         log.debug("prefetch next", { nextUrl });

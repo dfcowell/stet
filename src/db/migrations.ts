@@ -36,6 +36,12 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS idx_chapter_cache_url ON chapter_cache(url);
   `,
+  // v2: raw_chapter gains page-derived chapter list and serial-level title.
+  // Existing rows backfill to empty list / null.
+  `
+  ALTER TABLE raw_chapter ADD COLUMN chapter_links_json TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE raw_chapter ADD COLUMN serial_title TEXT;
+  `,
 ];
 
 export function runMigrations(db: Database.Database): void {

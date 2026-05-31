@@ -9,6 +9,7 @@ export interface ChapterLink {
 export interface ExtractedChapter {
   sourceUrl: string;
   title: string;
+  serialTitle: string | null; // serial-level title if extractable from this page
   rawText: string;            // cleaned prose, paragraphs separated by "\n\n"
   html: string | null;        // Readability article HTML, if available
   nextUrl: string | null;
@@ -36,7 +37,15 @@ export type GateStep =
 export interface SiteAdapter {
   domain: string;             // matched as suffix of the request hostname
   fetchMode?: "http" | "browser";
-  selectors?: { body?: string; next?: string; prev?: string; index?: string };
+  selectors?: {
+    body?: string;
+    next?: string;
+    prev?: string;
+    index?: string;
+    serialTitle?: string;   // serial-level title element
+    chapterTitle?: string;  // override for chapter title (defaults to og:title / content heading)
+    chapterList?: string;   // container whose <a> descendants are chapters
+  };
   gateSteps?: GateStep[];
 }
 
@@ -59,10 +68,12 @@ export interface ChapterCacheEntry {
 export interface RawChapter {        // raw extraction, profile-independent
   url: string;
   extractedTitle: string;
+  serialTitle: string | null;
   rawExtractedText: string;
   nextUrl: string | null;
   prevUrl: string | null;
   indexUrl: string | null;
+  chapterLinks: ChapterLink[];       // page-derived chapter list; [] when none discovered
   fetchedAt: number;
 }
 

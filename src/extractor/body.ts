@@ -42,10 +42,14 @@ export function extractBody(
   const dom = new JSDOM(html, { url: sourceUrl });
   const doc = dom.window.document;
 
-  // Resolve the title from the original DOM: og:title is the strongest signal,
-  // then the first non-chrome content heading. Computed before Readability runs,
-  // since Readability.parse() mutates the document.
-  const preTitle = metaContent(doc, "og:title") || contentHeading(doc);
+  // Resolve the title from the original DOM. Adapter override wins; otherwise
+  // og:title is the strongest signal, then the first non-chrome content
+  // heading. Computed before Readability runs, since Readability.parse()
+  // mutates the document.
+  const adapterTitle = adapter?.selectors?.chapterTitle
+    ? (doc.querySelector(adapter.selectors.chapterTitle)?.textContent ?? "").trim()
+    : "";
+  const preTitle = adapterTitle || metaContent(doc, "og:title") || contentHeading(doc);
   const docTitle = (doc.title ?? "").trim();
 
   if (adapter?.selectors?.body) {

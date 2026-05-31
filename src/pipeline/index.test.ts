@@ -224,6 +224,28 @@ describe("pipeline in-flight de-duplication", () => {
   });
 });
 
+describe("pipeline raw extraction persistence", () => {
+  it("persists serialTitle and chapterLinks on the cached raw chapter", async () => {
+    const deps = buildDeps(profile());
+    server = await startFixtureServer({
+      "/c/1": {
+        body: `<html><head>
+          <meta property="article:series" content="The Long Serial">
+          <link rel="next" href="/c/2">
+          </head><body><article>${richBody}</article>
+          <select id="ch"><option value="/c/1" selected>Chapter 1</option><option value="/c/2">Chapter 2</option><option value="/c/3">Chapter 3</option></select>
+          </body></html>`,
+      },
+    });
+    const pipeline = createPipeline(deps);
+    const url = `${server.url}/c/1`;
+    await collect(pipeline.readChapter(url));
+    const raw = deps.cache.getRawByUrl(url);
+    expect(raw?.serialTitle).toBe("The Long Serial");
+    expect(raw?.chapterLinks.length).toBe(3);
+  });
+});
+
 describe("pipeline non-2xx handling", () => {
   it("bails with an error and caches nothing when the source returns non-2xx", async () => {
     const deps = buildDeps(profile());

@@ -153,6 +153,7 @@ function openChapter(url) {
 
   const qs = new URLSearchParams({ url });
   if (state.activeProfile) qs.set("profileId", state.activeProfile);
+  if (state.story?.id) qs.set("storyId", state.story.id);
   const es = new EventSource(`/api/chapter?${qs.toString()}`);
   state.es = es;
   let buffer = "";
@@ -173,7 +174,10 @@ function openChapter(url) {
     buffer += JSON.parse(e.data).text;
     renderBody(buffer);
   });
-  es.addEventListener("done", () => { es.close(); state.es = null; });
+  es.addEventListener("done", () => {
+    es.close(); state.es = null;
+    if (state.story?.id) refreshStoryMetadata();
+  });
   es.addEventListener("error", (e) => {
     es.close(); state.es = null;
     let msg = "Couldn't load this chapter.";
@@ -185,6 +189,21 @@ function openChapter(url) {
     const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.textContent = "Open original";
     box.append(a);
   });
+}
+
+async function refreshStoryMetadata() {
+  if (!state.story?.id) return;
+  let fresh;
+  try { fresh = await api.story(state.story.id); } catch { return; }
+  if (!fresh || fresh.id !== state.story.id) return;
+  state.story = fresh;
+  $("serial-title").textContent = state.story.title || "…";
+  const ct = chapterTitleFor(state.url);
+  $("chapter-title").textContent = ct;
+  $("chapter-title").hidden = !ct;
+  buildChapterMenu();
+  setProgressFill();
+  $("menu-toggle").hidden = !(state.story.chapters?.length);
 }
 
 function renderBody(text) {

@@ -46,7 +46,7 @@ if (oidcConfig) {
 }
 
 const app = createApp({
-  pipeline, profiles, library, webDir: env("STET_WEB_DIR", "./web"),
+  pipeline, profiles, library, cache, webDir: env("STET_WEB_DIR", "./web"),
   addSerial: (url) => registerSerial(url, { fetcher, extractor, adapters }),
   auth,
 });

@@ -42,4 +42,31 @@ describe("createExtractor", () => {
     expect(r.chapterLinks.length).toBe(6);
     expect(r.indexUrl).toBe("https://s.example/toc");
   });
+
+  it("populates serialTitle on a chapter page that exposes it", async () => {
+    const ex = createExtractor({ model: "m" });
+    const html = `<head><meta property="article:series" content="The Long Serial"></head>
+      <body>${richBody}<a href="/c/6">Next</a></body>`;
+    const r = await ex.extract({ html, sourceUrl: base });
+    expect(r.serialTitle).toBe("The Long Serial");
+  });
+
+  it("honors an adapter chapterList selector over heuristics", async () => {
+    const ex = createExtractor({ model: "m" });
+    const html = `<body>
+      <nav class="toc"><a href="/c/1">One</a><a href="/c/2">Two</a><a href="/c/3">Three</a></nav>
+      ${richBody}
+      <footer><a href="/about">About</a><a href="/help">Help</a></footer>
+    </body>`;
+    const r = await ex.extract({
+      html,
+      sourceUrl: base,
+      adapter: { domain: "s.example", selectors: { chapterList: "nav.toc" } },
+    });
+    expect(r.chapterLinks.map((c) => c.url)).toEqual([
+      "https://s.example/c/1",
+      "https://s.example/c/2",
+      "https://s.example/c/3",
+    ]);
+  });
 });

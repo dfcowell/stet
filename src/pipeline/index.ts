@@ -69,10 +69,12 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         const raw: RawChapter = {
           url,
           extractedTitle: extracted.title,
+          serialTitle: extracted.serialTitle,
           rawExtractedText: extracted.rawText,
           nextUrl: extracted.nextUrl,
           prevUrl: extracted.prevUrl,
           indexUrl: extracted.indexUrl,
+          chapterLinks: extracted.chapterLinks,
           fetchedAt: Date.now(),
         };
         deps.cache.putRaw(raw);
