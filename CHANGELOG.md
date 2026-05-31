@@ -4,6 +4,41 @@ All notable changes to **stet** are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-05-31
+
+### Added
+
+- **Installable PWA.** The reader can be added to the home screen and launches
+  without browser chrome — `apple-mobile-web-app-capable=yes`, a real 180×180
+  apple-touch-icon, and a `manifest.webmanifest` are now part of the served
+  bundle.
+- **Opportunistic serial metadata refresh.** Every successful chapter read now
+  re-extracts serial-level metadata (title, full chapter list, index URL) from
+  the page and merges it into the stored library row. A serial whose
+  registration captured a junk title or an empty chapter list — for example
+  because the first fetch returned a 5xx error page — repairs itself the first
+  time any of its chapters is successfully read. No manual "refresh" button or
+  registration retry is required.
+- **`serialTitle` extractor.** Stacked heuristics pull a serial-level title
+  from `og:novel:novel_name`, `article:series` / `book:series`, a breadcrumb's
+  penultimate item, the non-chapter portion of `<title>`, and `og:site_name`
+  (rejected when it merely echoes the hostname).
+- **Site-adapter overrides for difficult sites.** `selectors.serialTitle`,
+  `selectors.chapterTitle`, and `selectors.chapterList` join the existing
+  `body` / `next` / `prev` / `index` overrides; adapter selectors always win
+  over heuristics. Adapter JSON files in `config/adapters/` pick up the new
+  fields with no schema change.
+
+### Reader UX
+
+- Chapter menu and serial title in the reader refresh after a chapter finishes
+  streaming so newly-discovered chapters appear without a page reload.
+
+### Schema
+
+- `raw_chapter` migration v2 adds `chapter_links_json` (default `'[]'`) and
+  `serial_title` (nullable). Existing rows backfill cleanly.
+
 ## [0.1.1] — 2026-05-30
 
 ### Fixed
