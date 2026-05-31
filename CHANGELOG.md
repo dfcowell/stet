@@ -4,6 +4,40 @@ All notable changes to **stet** are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-05-31
+
+### Added
+
+- **OTLP/HTTP trace exporter.** `OTEL_TRACES_EXPORTER=otlp` now ships spans
+  via `@opentelemetry/exporter-trace-otlp-http` to any OTLP-compatible
+  collector (Jaeger, Tempo, Honeycomb, Grafana Cloud, an OpenTelemetry
+  Collector, etc.). Standard OTel env vars configure the destination:
+  `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4318`),
+  `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`. Spans
+  are tagged `service.name=stet` (overridable via `OTEL_SERVICE_NAME`) so
+  they don't appear as `unknown_service:node` in collectors. The existing
+  `console` exporter and no-op default are unchanged.
+- **Bundled archiveofourown.org site adapter.** Targets `h2.title.heading`
+  for the serial (work) title and `h3.title` for the chapter title, so the
+  opportunistic metadata refresh introduced in v0.2.0 captures the real work
+  name on AO3 rather than the title-split heuristic.
+
+### Fixed
+
+- Replace the placeholder apple-touch-icon with a real 886×886 PNG so the
+  iOS home-screen install shows the expected icon instead of a screenshot
+  fallback.
+- Top bar now sizes to its content (and safe-area insets) instead of being
+  clipped to a fixed `--bar` height.
+
+### Deployment notes
+
+- The Helm chart mounts a ConfigMap over `/config/adapters` when
+  `values.config.adapters` is set, which **replaces** the baked-in adapters
+  including the new `archiveofourown.org.json`. If you provide your own
+  adapters via values, copy the AO3 adapter in too — otherwise the AO3 title
+  fix won't apply to your deployment.
+
 ## [0.2.0] — 2026-05-31
 
 ### Added
