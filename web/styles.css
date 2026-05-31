@@ -1,6 +1,6 @@
 :root {
   --bg: #faf8f4; --fg: #1f1b16; --muted: #8a8276; --accent: #8a5a2b;
-  --col: 38rem; --bar: 3rem;
+  --col: 38rem;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -16,7 +16,7 @@ body {
   overscroll-behavior-y: none;
 }
 .topbar {
-  position: sticky; top: 0; height: var(--bar); display: flex; align-items: center; gap: .5rem;
+  position: sticky; top: 0; display: flex; align-items: center; gap: .5rem;
   padding: 0 .75rem; background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(8px); border-bottom: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
   padding-top: env(safe-area-inset-top);
